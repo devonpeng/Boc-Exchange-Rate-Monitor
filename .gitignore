@@ -1,0 +1,7 @@
+# Local config and cache
+.boc_swiftbar_config.json
+.boc_swiftbar_cache.json
+
+# macOS system files
+.DS_Store
+__pycache__/
