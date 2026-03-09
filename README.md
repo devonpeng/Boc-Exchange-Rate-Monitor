@@ -18,12 +18,13 @@ A lightweight macOS status bar plugin designed to monitor real-time exchange rat
 ### 🛠 Installation
 
 1.  **Software**: Install [SwiftBar](https://github.com/swiftbar/SwiftBar).
-2.  **Download**: Place `Boc_Rates.1m.py` into your SwiftBar plugin folder.
-3.  **Permissions**: Run the following in your Terminal to make the script executable:
+    Special thanks to the SwiftBar team for providing such a versatile platform for developers.
+3.  **Download**: Place `Boc_Rates.1m.py` into your SwiftBar plugin folder.
+4.  **Permissions**: Run the following in your Terminal to make the script executable:
     ```bash
     chmod +x Boc_Rates.1m.py
     ```
-4.  **Run**: Open SwiftBar and select the plugin folder.
+5.  **Run**: Open SwiftBar and select the plugin folder.
 
 ---
 
