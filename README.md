@@ -1,6 +1,16 @@
-# 📈 BoC Exchange Rate Monitor for SwiftBar
+# 📈 BoC Exchange Rate Monitor for SwiftBar v2.0 (Stable)
 
 A lightweight macOS status bar plugin designed to monitor real-time exchange rates using official Bank of China (BOC) data. This tool was built to bridge the gap between financial theory and practical engineering, specifically addressing the "Exchange Rate Anxiety" often felt by international students.
+
+---
+
+### 🚀 What's New in v2.0
+
+* **Offline-First Resilience**: Automatically switches to "Offline Mode" when the network drops. It displays the last cached valid rate with a satellite icon (**📡**) instead of showing error messages.
+* **Power Efficiency**: Optimized refresh interval changed from 1m to **10m**, reducing CPU wake-ups and significantly extending MacBook battery life.
+* **Graceful Error Handling**: Technical Python exceptions (like DNS timeouts) are masked with user-friendly status updates in the dropdown menu.
+* **Enhanced State Sync**: Fixed the interactive command bridge to ensure that manual refreshes instantly trigger UI updates.
+* **Professional Documentation**: Codebase updated with technical annotations covering Scraper logic, Persistence layers, and macOS Bridge protocols.
 
 ---
 
