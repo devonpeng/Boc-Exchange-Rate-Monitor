@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # <bitbar.title>BoC Exchange Rate Monitor</bitbar.title>
-# <bitbar.version>v1.0</bitbar.version>
+# <bitbar.version>v2.0</bitbar.version>
 
 import urllib.request
 import urllib.error
@@ -12,6 +12,7 @@ import subprocess
 import time
 
 # ================= Basic Configuration =================
+# Storage paths for persistent configuration and state
 CONFIG_FILE = os.path.expanduser('~/.boc_swiftbar_config.json')
 CACHE_FILE = os.path.expanduser('~/.boc_swiftbar_cache.json')
 SCRIPT_PATH = os.path.abspath(__file__)
@@ -51,6 +52,10 @@ def save_config(config):
         json.dump(config, f)
 
 def prompt_input(title, default_val=""):
+    """
+    Bridge: Triggers a native macOS dialog via AppleScript for user input.
+    Essential for interactive settings within the SwiftBar environment.
+    """
     script = f'''
     tell application "System Events"
         activate
@@ -76,7 +81,7 @@ def fetch_boc_data():
     headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'}
     try:
         req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with urllib.request.urlopen(req, timeout=30) as response:
             html = response.read().decode('utf-8')
         rates = {}
         for cn_name in CURRENCY_MAP.keys():
@@ -95,22 +100,31 @@ def fetch_boc_data():
         return None, f"Unexpected Error: {str(e)}"
 
 def get_data_with_cache(force=False):
-    """ Retrieves exchange rates from cache or fetches new data if cache is expired (55s)."""
     now = time.time()
-    cache = {"timestamp": 0, "rates": {}}
+    cache = {"timestamp": 0, "rates": {}, "error": None}
     if os.path.exists(CACHE_FILE):
         try:
             with open(CACHE_FILE, 'r') as f:
-                cache = json.load(f)
+                cache = {**cache, **json.load(f)}
         except: pass
 
-    if force or (now - cache.get("timestamp", 0) > 55):
+    # Persistence: Cache TTL set to 595s (approx. 10m) to minimize CPU wake-ups.
+    # Also handles 'Offline-First' state by caching error messages.
+    if force or (now - cache.get("timestamp", 0) > 595):
         new_rates, err = fetch_boc_data()
-        if err: return None, err
+        if err:
+            cache["error"] = f"Offline: {err}"
+            cache["timestamp"] = now
+            with open(CACHE_FILE, 'w') as f:
+                json.dump(cache, f)
+            return cache, cache["error"]
+        
+        cache["error"] = None
         cache["timestamp"], cache["rates"] = now, new_rates
         with open(CACHE_FILE, 'w') as f:
             json.dump(cache, f)
-    return cache, None
+
+    return cache, cache.get("error")
 
 # ================= Interactive Commands =================
 
@@ -125,28 +139,27 @@ if len(sys.argv) > 1:
         cfg["lower_bound"] = prompt_input("Lower Bound Alert Rate", cfg.get("lower_bound") or "")
     elif action == "clear_alerts":
         cfg["upper_bound"], cfg["lower_bound"] = None, None
-    elif action == "force_refresh": get_data_with_cache(force=True)
     save_config(cfg)
-    sys.exit(0)
+    # SwiftBar Protocol: Exit settings actions immediately to prevent UI ghosting; 
+    # force_refresh will bypass this and continue to main() for re-rendering.
+    if action != "force_refresh":
+        sys.exit(0)
 
 # ================= Rendering Logic =================
 
-def main():
+def main(force_refresh=False):
     cfg = load_config()
     curr_cn, side = cfg["currency"], cfg["side"]
-    data, err = get_data_with_cache()
+    data, err = get_data_with_cache(force=force_refresh)
     
-    if err:
-        print(f"⚠️ Data Error")
+    if not data or not data.get("rates"):
+        print(f"⚠️ Connection Error")
         print("---")
+        print(f"Check Internet Connection")
         print(f"Manual Refresh | bash='{SCRIPT_PATH}' param1='force_refresh' terminal=false refresh=true")
         return
 
     rates = data["rates"].get(curr_cn)
-    if not rates:
-        print(f"⚠️ {curr_cn} Not Found")
-        return
-
     price = rates["buy"] if side == "BUY" else rates["sell"]
     
     # --- 1. Menu Bar Display ---
@@ -165,11 +178,15 @@ def main():
         alert_color = " | color=green"
         alert_icon = "📉 " 
         alert_msg = " (Lower Bound Hit)"
-
-    print(f"{alert_icon}{flag} {price:.2f}{alert_color}")
+    # UI Logic: Prioritize 📡 satellite icon if network is unavailable (Offline Mode);
+    # otherwise, follow the default alert icon or currency flag priority.
+    status_icon = "📡" if err else (alert_icon or flag)
+    print(f"{status_icon} {price:.2f}{alert_color}")
     
     # --- 2. Dropdown Menu ---
     print("---")
+    if err:
+        print(f"⚠️ Network Unavailable (Showing Cached Data) | color=orange")
     print(f"🏦 Monitoring: {curr_en}")
     for cn_key, (c_flag, c_en) in CURRENCY_MAP.items():
         mark = "✓ " if cn_key == curr_cn else "  "
@@ -203,4 +220,5 @@ def main():
     print(f"Manual Refresh | bash='{SCRIPT_PATH}' param1='force_refresh' terminal=false refresh=true")
 
 if __name__ == "__main__":
-    main()
+    is_force = len(sys.argv) > 1 and sys.argv[1] == "force_refresh"
+    main(force_refresh=is_force)
